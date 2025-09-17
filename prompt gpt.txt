@@ -1,0 +1,101 @@
+Quero que você crie um jogo de tabuleiro educativo infantil em HTML, CSS e JavaScript (Canvas API), que rode direto no navegador. O jogo deve ter estas características:
+
+🎲 Regras do jogo
+
+Tabuleiro com 22 casas em formato zigue-zague colorido, centralizado na tela.
+
+2 jogadores, cada um representado por ícones/cartoon (um menino 👦 e uma menina 👧).
+
+Cada jogador começa na casa 1 e anda conforme o resultado do dado (1–6).
+
+Vence quem chegar (ou ultrapassar) a casa 22 primeiro.
+
+❓ Perguntas educativas (aparecem em modal)
+
+Quando um jogador cair em certas casas, deve aparecer uma caixa de diálogo com pergunta e alternativas.
+As perguntas são:
+
+Casa 2: O que acontece se a gente tomar mais remédio do que precisa?
+a) Pode fazer mal e deixar doente ✅
+b) A gente fica mais forte que um super-herói
+c) Nada acontece
+
+Casa 5: Onde os remédios devem ficar guardados em casa?
+a) Em um lugar alto, seguro e fechado ✅
+b) No banheiro
+c) Embaixo do travesseiro
+
+Casa 7: Por que não podemos tomar remédio sozinhos, sem um adulto?
+a) Porque só o adulto sabe a quantidade certa ✅
+b) Porque o remédio foge se não tiver adulto
+
+Casa 10: Como o corpo sabe para onde o remédio tem que ir?
+a) O remédio viaja pelo sangue até o lugar certo ✅
+b) O remédio lê um mapa mágico
+c) O corpo manda mensagem de celular
+d) O remédio pergunta para outro remédio
+
+Casa 13: O que acontece se misturar vários remédios sem o médico mandar?
+a) Pode fazer muito mal ✅
+b) Os remédios brigam
+c) Não acontece nada
+
+Casa 15: O remédio deve ser tomado com:
+a) Refrigerante
+b) Água ✅
+c) Suco
+
+Casa 18: Quem inventa e fabrica os remédios?
+a) Os cientistas e farmacêuticos ✅
+b) O Papai Noel
+c) A cozinheira do refeitório
+
+Casa 21: Se um amigo pedir um pouco do seu remédio, o que você deve fazer?
+a) Não dar, porque o remédio é só para você ✅
+b) Dividir como um lanche
+c) Trocar por figurinhas
+
+O jogador deve clicar em uma opção:
+
+Se acertar → aparece feedback positivo + toca som de acerto.
+
+Se errar → aparece feedback negativo + toca som de erro.
+
+🎨 Layout
+Iniciar o jogo perguntanto quantos jogadores (ate dois) e um modal para escolher icone e inserir nome
+
+Tabuleiro no centro.
+
+Jogador 1 no painel esquerdo e Jogador 2 no painel direito.
+
+Cada painel mostra nome, ícone/cartoon e indica quem está com a vez.
+
+O tabuleiro deve ter casas coloridas alternadas, com um "?" nas casas de pergunta.
+
+🎲 Dado
+
+Botão "Jogar dado" que mostra o valor sorteado.
+
+O dado deve ter uma animação (números mudando rápido antes de parar).
+
+Deve tocar som de dado rolando durante a animação.
+
+🔊 Efeitos sonoros (usar áudios gratuitos online ou placeholders)
+
+Rolar dado → som de dado.
+
+Acertar pergunta → som alegre/aplausos.
+
+Errar pergunta → buzzer de erro.
+
+Vitória → som alegre (pode reaproveitar o de acerto).
+
+⚙️ Técnicas
+
+Usar apenas HTML, CSS e JavaScript puro (sem frameworks externos).
+
+Usar Canvas API para desenhar tabuleiro e mover jogadores.
+
+Jogadores devem ser sprites/cartoon (use ícones de domínio público, como do Flaticon ou OpenMoji).
+
+Todo o código deve estar em um único arquivo .html, pronto para abrir no navegador.

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jogo Educativo — Remédios</title>
+<style>
+:root{--bg:#f7fbff;--board:#fff;--accent:#1e88e5;--ok:#2e7d32;--bad:#c62828}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+canvas{background:linear-gradient(180deg,#eaf4ff,#ffffff);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.layout{display:flex;gap:20px;width:100%;max-width:1200px;justify-content:center;align-items:flex-start;}
+.side{width:220px;}
+.card{background:var(--board);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);margin-bottom:12px}
+h1{margin:0 0 8px;font-size:18px}
+p{margin:6px 0;color:#333}
+button{background:var(--accent);color:white;border:0;padding:10px;border-radius:10px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.playerBox{padding:8px;border-radius:8px;margin-top:8px;text-align:center;}
+.playerBox.active{box-shadow:inset 0 0 0 2px var(--accent);}
+.modal{position:fixed;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:99}
+.dialog{width:520px;background:white;padding:18px;border-radius:12px;text-align:center;}
+.choices{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.choiceBtn{color:#333;padding:10px;border-radius:8px;border:1px solid #ddd;background:#fafafa;text-align:left}
+.correct{border-color:var(--ok);background:#e8f5e9}
+.wrong{border-color:var(--bad);background:#ffebee}
+.character-option{cursor:pointer;border:2px solid transparent;border-radius:10px;margin:5px;transition:0.2s;}
+.character-option.selected{border-color:var(--accent);}
+#diceCanvas{width:80px;height:80px;margin:10px auto;display:block;}
+</style>
+</head>
+<body>
+
+<!-- Modal Inicial: Número de jogadores e personagens -->
+<div id="startModal" class="modal">
+  <div class="dialog">
+    <h2>Escolha número de jogadores</h2>
+    <button id="onePlayerBtn">1 Jogador</button>
+    <button id="twoPlayerBtn">2 Jogadores</button>
+    <div id="playerSetup" style="display:none;margin-top:15px;">
+      <h3 id="playerSetupTitle">Jogador 1</h3>
+      <div style="display:flex;justify-content:center;gap:10px;margin:10px 0;">
+        <img class="character-option" src="https://cdn-icons-png.flaticon.com/512/921/921124.png" data-index="0" width="60">
+        <img class="character-option" src="https://cdn-icons-png.flaticon.com/512/921/921133.png" data-index="1" width="60">
+        <img class="character-option" src="https://cdn-icons-png.flaticon.com/512/921/921122.png" data-index="2" width="60">
+        <img class="character-option" src="https://cdn-icons-png.flaticon.com/512/921/921128.png" data-index="3" width="60">
+      </div>
+      <input id="playerName" type="text" placeholder="Digite o nome" style="width:80%;padding:6px;border-radius:6px;border:1px solid #ccc;">
+      <div style="margin-top:10px;"><button id="nextPlayerBtn">Próximo</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="side" id="leftPanel"><div class="card playerBox" id="p1Box">Jogador 1</div></div>
+  <canvas id="canvas" width="780" height="500"></canvas>
+  <div class="side" id="rightPanel">
+    <div class="card playerBox" id="p2Box">Jogador 2</div>
+    <div class="card">
+      <h1>Controles</h1>
+      <div style="display:flex;gap:8px;">
+        <button id="rollBtn">🎲 Jogar dado</button>
+        <button id="resetBtn">🔁 Reiniciar</button>
+      </div>
+      <canvas id="diceCanvas"></canvas>
+      <p id="turnLabel">Vez: Jogador 1</p>
+      <p id="lastMove">–</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Pergunta -->
+<div id="questionModal" class="modal" style="display:none">
+  <div class="dialog">
+    <h3 id="qTitle">Pergunta</h3>
+    <p id="qText"></p>
+    <div class="choices" id="choices"></div>
+    <div style="margin-top:10px;"><button id="closeQ">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Modal de Vitória -->
+<div id="victoryModal" class="modal" style="display:none">
+  <div class="dialog">
+    <h2 id="victoryText"></h2>
+    <button id="restartVictoryBtn">Reiniciar Jogo</button>
+  </div>
+</div>
+
+<audio id="soundDiceRoll" src="https://freesound.org/data/previews/547/547928_9946200-lq.mp3"></audio>
+<audio id="soundCorrect" src="https://freesound.org/data/previews/528/528957_10932126-lq.wav"></audio>
+<audio id="soundWrong" src="https://freesound.org/data/previews/650/650842_12793919-lq.wav"></audio>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const diceCanvas = document.getElementById('diceCanvas');
+const dctx = diceCanvas.getContext('2d');
+
+const TOTAL_CELLS = 22;
+const cellSize = 60;
+const positions = [];
+const cols = 8;
+const rows = Math.ceil(TOTAL_CELLS/cols);
+for(let r=0;r<rows;r++){
+  for(let c=0;c<cols;c++){
+    let idx = r%2===0? c : (cols-1-c);
+    let cellNum = r*cols+c;
+    if(cellNum<TOTAL_CELLS) positions.push({x:40 + idx*(cellSize+10), y:40 + r*(cellSize+10)});
+  }
+}
+
+// Perguntas
+const questionsMap = new Map([
+  [2,{text:'O que acontece se a gente tomar mais remédio do que precisa?',choices:['Pode fazer mal e deixar doente','A gente fica mais forte que um super-herói','Nada acontece'],correct:0}],
+  [5,{text:'Onde os remédios devem ficar guardados em casa?',choices:['Em um lugar alto, seguro e fechado','No banheiro','Embaixo do travesseiro'],correct:0}],
+  [7,{text:'Por que não podemos tomar remédio sozinhos, sem um adulto?',choices:['Porque só o adulto sabe a quantidade certa','Porque o remédio foge se não tiver adulto'],correct:0}],
+  [10,{text:'Como o corpo sabe para onde o remédio tem que ir?',choices:['O remédio viaja pelo sangue até o lugar certo','O remédio lê um mapa mágico','O corpo manda mensagem de celular','O remédio pergunta para outro remédio'],correct:0}],
+  [13,{text:'O que acontece se misturar vários remédios sem o médico mandar?',choices:['Pode fazer muito mal','Os remédios brigam','Não acontece nada'],correct:0}],
+  [15,{text:'O remédio deve ser tomado com:',choices:['Refrigerante','Água','Suco'],correct:1}],
+  [18,{text:'Quem inventa e fabrica os remédios?',choices:['Os cientistas e farmacêuticos','O Papai Noel','A cozinheira do refeitório'],correct:0}],
+  [21,{text:'Se um amigo pedir um pouco do seu remédio, o que você deve fazer?',choices:['Não dar, porque o remédio é só para você','Dividir como um lanche','Trocar por figurinhas'],correct:0}]
+]);
+
+let players=[], turn=0, rolling=false, currentQuestion=null;
+let numPlayers=1;
+
+// Sons
+const soundDiceRoll = document.getElementById('soundDiceRoll');
+const soundCorrect = document.getElementById('soundCorrect');
+const soundWrong = document.getElementById('soundWrong');
+
+// --- Modal Inicial ---
+const startModal = document.getElementById('startModal');
+const onePlayerBtn = document.getElementById('onePlayerBtn');
+const twoPlayerBtn = document.getElementById('twoPlayerBtn');
+const playerSetup = document.getElementById('playerSetup');
+const playerSetupTitle = document.getElementById('playerSetupTitle');
+const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+const playerNameInput = document.getElementById('playerName');
+const characterOptions = document.querySelectorAll('.character-option');
+
+let currentSetup = 0;
+let selectedIconIndex=0;
+
+characterOptions.forEach(img=>{img.onclick=()=>{
+  characterOptions.forEach(i=>i.classList.remove('selected'));
+  img.classList.add('selected');
+  selectedIconIndex = parseInt(img.dataset.index);
+}});
+
+onePlayerBtn.onclick=()=>{
+  numPlayers=1;
+  startPlayerSetup();
+};
+twoPlayerBtn.onclick=()=>{
+  numPlayers=2;
+  startPlayerSetup();
+};
+
+function startPlayerSetup(){
+  onePlayerBtn.style.display='none';
+  twoPlayerBtn.style.display='none';
+  playerSetup.style.display='block';
+}
+
+nextPlayerBtn.onclick=()=>{
+  const name = playerNameInput.value.trim()||`Jogador ${currentSetup+1}`;
+  const icon = new Image();
+  icon.src = characterOptions[selectedIconIndex].src;
+  players.push({name,pos:0,score:0,icon});
+
+  currentSetup++;
+  if(currentSetup<numPlayers){
+    playerSetupTitle.textContent=`Jogador ${currentSetup+1}`;
+    playerNameInput.value='';
+    characterOptions.forEach(i=>i.classList.remove('selected'));
+  } else {
+    // Jogador 2 automático se só 1 jogador
+    if(numPlayers===1){
+      let idx2=[0,1,2,3].filter(i=>i!==selectedIconIndex)[Math.floor(Math.random()*3)];
+      let icon2 = new Image();
+      icon2.src = characterOptions[idx2].src;
+      players.push({name:'Jogador 2',pos:0,score:0,icon:icon2});
+    }
+    document.getElementById('p1Box').textContent = players[0].name;
+    document.getElementById('p2Box').textContent = players[1].name;
+    startModal.style.display='none';
+    drawBoard(); updateUI();
+  }
+};
+
+// --- Dado animado no Canvas ---
+function drawDice(value){
+  dctx.clearRect(0,0,diceCanvas.width,diceCanvas.height);
+  dctx.fillStyle='#fff'; dctx.fillRect(0,0,diceCanvas.width,diceCanvas.height);
+  dctx.strokeStyle='#000'; dctx.strokeRect(0,0,diceCanvas.width,diceCanvas.height);
+  dctx.fillStyle='#000'; dctx.font='40px sans-serif';
+  dctx.textAlign='center'; dctx.textBaseline='middle';
+  dctx.fillText(value,diceCanvas.width/2,diceCanvas.height/2);
+}
+
+function animateDice(callback){
+  let count=10;
+  const interval = setInterval(()=>{
+    let val = Math.floor(Math.random()*6)+1;
+    drawDice(val);
+    soundDiceRoll.play();
+    if(--count===0){ clearInterval(interval); callback(val);}
+  },150);
+}
+
+// --- Jogar dado ---
+const rollBtn = document.getElementById('rollBtn');
+rollBtn.onclick=()=>{if(!rolling){rolling=true;rollBtn.disabled=true;animateDice(val=>{
+  movePlayerAnimated(turn,val,()=>{rolling=false;rollBtn.disabled=false;checkLanding(turn);});
+});}};
+
+// --- Movimento jogador ---
+function movePlayerAnimated(idx,steps,cb){
+  if(steps<=0){ cb(); return; }
+  players[idx].pos=Math.min(players[idx].pos+1,TOTAL_CELLS-1);
+  drawBoard();
+  setTimeout(()=>movePlayerAnimated(idx,steps-1,cb),300);
+}
+
+// --- Checagem casa ---
+function checkLanding(idx){
+  const pl = players[idx];
+  if(pl.pos>=TOTAL_CELLS-1){ showVictory(idx); return; }
+  const cell = pl.pos+1;
+  if(questionsMap.has(cell)) showQuestion(cell,idx);
+  else nextTurn();
+}
+
+// --- Próximo turno ---
+function nextTurn(){ turn=(turn+1)%players.length; updateUI(); }
+
+// --- Modal pergunta ---
+const questionModal = document.getElementById('questionModal');
+const qTitle=document.getElementById('qTitle');
+const qText=document.getElementById('qText');
+const choicesDiv=document.getElementById('choices');
+const closeQ=document.getElementById('closeQ');
+
+function showQuestion(cell, idx){
+  const q = questionsMap.get(cell);
+  currentQuestion={q, idx};
+  qTitle.textContent=`Casa ${cell}`;
+  qText.textContent = q.text;
+  choicesDiv.innerHTML='';
+  q.choices.forEach((c,i)=>{
+    const btn=document.createElement('button'); btn.className='choiceBtn'; btn.textContent=`${String.fromCharCode(97+i)}) ${c}`;
+    btn.onclick=()=>answerChoice(i,btn); choicesDiv.appendChild(btn);
+  });
+  questionModal.style.display='flex';
+  rollBtn.disabled=true;
+}
+
+function answerChoice(choiceIdx, btn){
+  const {q, idx} = currentQuestion;
+  Array.from(choicesDiv.children).forEach((b,i)=>{
+    b.disabled=true;
+    if(i===q.correct)b.classList.add('correct');
+    if(i===choiceIdx && i!==q.correct)b.classList.add('wrong');
+  });
+  if(choiceIdx===q.correct){players[idx].score++; soundCorrect.play();}
+  else soundWrong.play();
+  setTimeout(()=>{closeQuestion(); nextTurn();},1200);
+}
+function closeQuestion(){questionModal.style.display='none';currentQuestion=null;rollBtn.disabled=false;updateUI();}
+
+// --- Vitória ---
+const victoryModal = document.getElementById('victoryModal');
+const victoryText = document.getElementById('victoryText');
+const restartVictoryBtn = document.getElementById('restartVictoryBtn');
+restartVictoryBtn.onclick=()=>location.reload();
+function showVictory(idx){
+  victoryText.textContent=`Parabéns ${players[idx].name}! Você venceu! 🎉`;
+  victoryModal.style.display='flex';
+  rollBtn.disabled=true;
+}
+
+// --- Reset ---
+document.getElementById('resetBtn').onclick=()=>location.reload();
+
+// --- UI / Board ---
+function updateUI(){
+  document.getElementById('turnLabel').textContent=`Vez: ${players[turn].name}`;
+  document.getElementById('p1Box').classList.toggle('active',turn===0);
+  document.getElementById('p2Box').classList.toggle('active',turn===1);
+  drawBoard();
+}
+
+function drawBoard(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<TOTAL_CELLS;i++){
+    const pos=positions[i];
+    ctx.fillStyle=i%2===0?'#bbdefb':'#ffe0b2';
+    ctx.fillRect(pos.x,pos.y,cellSize,cellSize);
+    ctx.strokeStyle='#666'; ctx.strokeRect(pos.x,pos.y,cellSize,cellSize);
+    ctx.fillStyle='#000'; ctx.font='14px sans-serif';
+    ctx.fillText(i+1,pos.x+8,pos.y+16);
+    if(questionsMap.has(i+1)){
+      ctx.fillStyle='#d32f2f'; ctx.fillText('?',pos.x+cellSize-20,pos.y+cellSize-10);
+    }
+  }
+  players.forEach(pl=>{if(pl.icon) ctx.drawImage(pl.icon,positions[pl.pos].x+10,positions[pl.pos].y+10,40,40);});
+}
+
+</script>
+</body>
+</html>
